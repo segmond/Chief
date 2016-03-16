@@ -12,12 +12,16 @@
         "php": ">=7.0.0"
     },
     "require-dev": {
-        "psr/log": "*@dev",
+        "phpunit/phpunit": "^5.2",
+        "psr/log": "^1.0",
+        "psr/cache": "^1.0",
         "illuminate/container": "*@dev",
         "illuminate/events": "*@dev",
-        "league/container": "~1.3",
-        "phpunit/phpunit": "^5.2",
-        "psr/cache": "^1.0"
+        "league/container": "~1.3"
+    },
+    "suggest": {
+        "psr/log": "Allows logging command execution",
+        "psr/cache": "Allows caching the return value of commands"
     },
     "autoload": {
         "psr-4": {
