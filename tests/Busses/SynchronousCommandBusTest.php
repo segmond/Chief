@@ -1,23 +1,24 @@
 <?php
 
-namespace Chief\Busses;
+namespace Chief\Bus;
 
 use Chief\ChiefTestCase;
 use Chief\CommandBus;
-use Chief\Stubs\TestCommand;
+use Chief\Executor;
+use Chief\TestStubs\TestCommand;
 
 class SynchronousCommandBusTest extends ChiefTestCase
 {
     public function testInstance()
     {
-        $this->assertTrue(new SynchronousCommandBus instanceof CommandBus);
+        $this->assertTrue(new Executor instanceof CommandBus);
     }
 
     public function testExecuteFiresHandlerProvidedByResolver()
     {
-        $resolver = $this->getMock('Chief\CommandHandlerResolver');
-        $handler = $this->getMock('Chief\CommandHandler');
-        $bus = new SynchronousCommandBus($resolver);
+        $resolver = $this->getMock(\Chief\CommandHandlerResolver::class);
+        $handler = $this->getMock(\Chief\Handler::class);
+        $bus = new Executor($resolver);
         $command = new TestCommand;
         $handler->expects($this->once())->method('handle')->with($command);
         $resolver->expects($this->once())->method('resolve')->with($command)->willReturn($handler);
@@ -26,9 +27,9 @@ class SynchronousCommandBusTest extends ChiefTestCase
 
     public function testExecuteReturnsHandlerResponse()
     {
-        $resolver = $this->getMock('Chief\CommandHandlerResolver');
-        $handler = $this->getMock('Chief\CommandHandler');
-        $bus = new SynchronousCommandBus($resolver);
+        $resolver = $this->getMock(\Chief\CommandHandlerResolver::class);
+        $handler = $this->getMock(\Chief\Handler::class);
+        $bus = new Executor($resolver);
         $command = new TestCommand;
         $handler->expects($this->once())->method('handle')->with($command)->willReturn('Foo-Bar.');
         $resolver->expects($this->once())->method('resolve')->with($command)->willReturn($handler);

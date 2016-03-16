@@ -8,7 +8,7 @@ interface CommandHandlerResolver
      * Retrieve a CommandHandler for a given Command
      *
      * @param Command $command
-     * @return CommandHandler
+     * @return Handler
      */
     public function resolve(Command $command);
 
@@ -17,7 +17,7 @@ interface CommandHandlerResolver
      * resolution behaviour for this resolver
      *
      * @param string $commandName
-     * @param CommandHandler|callable|string $handler
+     * @param Handler|callable|string $handler
      */
     public function bindHandler($commandName, $handler);
 }

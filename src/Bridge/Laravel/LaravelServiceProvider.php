@@ -2,9 +2,9 @@
 
 namespace Chief\Bridge\Laravel;
 
-use Chief\Busses\SynchronousCommandBus;
+use Chief\Executor;
 use Chief\Chief;
-use Chief\Decorators\CommandQueueingDecorator;
+use Chief\Queue\CommandQueueingDecorator;
 use Chief\Resolvers\NativeCommandHandlerResolver;
 use Illuminate\Support\ServiceProvider;
 
@@ -57,7 +57,7 @@ class LaravelServiceProvider extends ServiceProvider
     {
         $this->app->bind('Chief\Busses\SynchronousCommandBus', function () {
             $resolver = $this->app->make('Chief\CommandHandlerResolver');
-            return new SynchronousCommandBus($resolver);
+            return new Executor($resolver);
         });
     }
 
@@ -71,7 +71,7 @@ class LaravelServiceProvider extends ServiceProvider
 
     protected function registerEventDispatcher()
     {
-        $this->app->bind('Chief\Decorators\EventDispatcher', 'Chief\Bridge\Laravel\IlluminateEventDispatcher');
+        $this->app->bind('Chief\Event\EventDispatcher', 'Chief\Bridge\Laravel\IlluminateEventDispatcher');
     }
 
     protected function registerChief()

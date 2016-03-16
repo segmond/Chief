@@ -4,13 +4,13 @@ namespace Chief\Resolvers;
 
 use Chief\ChiefTestCase;
 use Chief\Command;
-use Chief\CommandHandler;
+use Chief\Handler;
 use Chief\CommandHandlerResolver;
-use Chief\Stubs\TestCommand;
-use Chief\Stubs\TestCommandHandler;
-use Chief\Stubs\TestCommandWithNestedHandler;
-use Chief\Stubs\Handlers\TestCommandWithNestedHandlerHandler;
-use Chief\Stubs\TestCommandWithoutHandler;
+use Chief\TestStubs\TestCommand;
+use Chief\TestStubs\TestCommandHandler;
+use Chief\TestStubs\TestCommandWithNestedHandler;
+use Chief\TestStubs\Handlers\TestCommandWithNestedHandlerHandler;
+use Chief\TestStubs\TestCommandWithoutHandler;
 
 class NativeCommandHandlerResolverTest extends ChiefTestCase
 {
@@ -42,9 +42,9 @@ class NativeCommandHandlerResolverTest extends ChiefTestCase
 
     public function testResolveReturnsHandlerBoundByObject()
     {
-        $handler = $this->getMock('Chief\CommandHandler');
+        $handler = $this->getMock(\Chief\Handler::class);
         $resolver = new NativeCommandHandlerResolver;
-        $resolver->bindHandler('Chief\Stubs\TestCommandWithoutHandler', $handler);
+        $resolver->bindHandler(\Chief\TestStubs\TestCommandWithoutHandler::class, $handler);
         $this->assertEquals($resolver->resolve(new TestCommandWithoutHandler), $handler);
     }
 
@@ -52,12 +52,12 @@ class NativeCommandHandlerResolverTest extends ChiefTestCase
     {
         $resolver = new NativeCommandHandlerResolver;
         $proof = new \stdClass();
-        $resolver->bindHandler('Chief\Stubs\TestCommandWithoutHandler', function (Command $command) use ($proof) {
+        $resolver->bindHandler('Chief\TestStubs\TestCommandWithoutHandler', function (Command $command) use ($proof) {
                 $proof->handled = true;
         });
         $command = new TestCommandWithoutHandler;
         $handler = $resolver->resolve($command);
-        $this->assertTrue($handler instanceof CommandHandler);
+        $this->assertTrue($handler instanceof Handler);
         $handler->handle($command);
         $this->assertEquals($proof->handled, true);
     }
@@ -65,10 +65,10 @@ class NativeCommandHandlerResolverTest extends ChiefTestCase
     public function testResolveReturnsHandlerBoundByString()
     {
         $resolver = new NativeCommandHandlerResolver;
-        $resolver->bindHandler('Chief\Stubs\TestCommandWithoutHandler', 'Chief\Stubs\TestCommandHandler');
+        $resolver->bindHandler('Chief\TestStubs\TestCommandWithoutHandler', 'Chief\TestStubs\TestCommandHandler');
         $command = new TestCommand;
         $handler = $resolver->resolve($command);
-        $this->assertTrue($handler instanceof CommandHandler);
+        $this->assertTrue($handler instanceof Handler);
         $handler->handle($command);
         $this->assertEquals($command->handled, true);
     }

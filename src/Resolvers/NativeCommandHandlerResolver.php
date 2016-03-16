@@ -3,12 +3,12 @@
 namespace Chief\Resolvers;
 
 use Chief\Command;
-use Chief\CommandHandler;
+use Chief\Handler;
 use Chief\CommandHandlerResolver;
 use Chief\Exceptions\UnresolvableCommandHandlerException;
-use Chief\Handlers\CallableCommandHandler;
-use Chief\Handlers\LazyLoadingCommandHandler;
-use Chief\Containers\NativeContainer;
+use Chief\Handlers\CallableHandler;
+use Chief\Handlers\LazyLoadingHandler;
+use Chief\Container\NativeContainer;
 use Interop\Container\ContainerInterface;
 
 class NativeCommandHandlerResolver implements CommandHandlerResolver
@@ -26,7 +26,7 @@ class NativeCommandHandlerResolver implements CommandHandlerResolver
      * Retrieve a CommandHandler for a given Command
      *
      * @param Command $command
-     * @return CommandHandler
+     * @return Handler
      * @throws UnresolvableCommandHandlerException
      */
     public function resolve(Command $command)
@@ -41,14 +41,14 @@ class NativeCommandHandlerResolver implements CommandHandlerResolver
         }
 
         // If the Command also implements CommandHandler, then it can handle() itself
-        if ($command instanceof CommandHandler) {
+        if ($command instanceof Handler) {
             return $command;
         }
 
         // Try and guess the handler's name in the same namespace with suffix "Handler"
         $class = $commandName . 'Handler';
         if (class_exists($class)) {
-            return $this->container->make($class);
+            return $this->container->get($class);
         }
 
         // Try and guess the handler's name in nested "Handlers" namespace with suffix "Handler"
@@ -56,7 +56,7 @@ class NativeCommandHandlerResolver implements CommandHandlerResolver
         $commandNameWithoutNamespace = array_pop($classParts);
         $class = implode('\\', $classParts) . '\\Handlers\\' . $commandNameWithoutNamespace . 'Handler';
         if (class_exists($class)) {
-            return $this->container->make($class);
+            return $this->container->get($class);
         }
 
         throw new UnresolvableCommandHandlerException('Could not resolve a handler for [' . get_class($command) . ']');
@@ -67,26 +67,26 @@ class NativeCommandHandlerResolver implements CommandHandlerResolver
      * resolution behaviour for this resolver
      *
      * @param string $commandName
-     * @param CommandHandler|callable|string $handler
+     * @param Handler|callable|string $handler
      * @return void
      * @throws \InvalidArgumentException
      */
     public function bindHandler($commandName, $handler)
     {
         // If the $handler given is an instance of CommandHandler, simply bind that
-        if ($handler instanceof CommandHandler) {
+        if ($handler instanceof Handler) {
             $this->handlers[$commandName] = $handler;
             return;
         }
 
         // If the handler given is callable, wrap it up in a CallableCommandHandler for executing later
         if (is_callable($handler)) {
-            return $this->bindHandler($commandName, new CallableCommandHandler($handler));
+            return $this->bindHandler($commandName, new CallableHandler($handler));
         }
 
         // If the handler given is a string, wrap it up in a LazyLoadingCommandHandler for loading later
         if (is_string($handler)) {
-            return $this->bindHandler($commandName, new LazyLoadingCommandHandler($handler, $this->container));
+            return $this->bindHandler($commandName, new LazyLoadingHandler($handler, $this->container));
         }
 
         throw new \InvalidArgumentException('Could not push handler. Command Handlers should be an

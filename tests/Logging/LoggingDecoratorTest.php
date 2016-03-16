@@ -1,0 +1,52 @@
+<?php
+
+namespace Chief\Logging;
+
+use Chief\CommandBus;
+use Chief\DecoratorTestCase;
+use Chief\TestStubs\TestCommand;
+
+class LoggingDecoratorTestCase extends DecoratorTestCase
+{
+    public function testInstance()
+    {
+        $decorator = $this->getDecorator();
+        $decorator->setInnerBus($this->getMock(\Chief\CommandBus::class));
+        $this->assertTrue($decorator instanceof CommandBus);
+    }
+
+    public function testExecuteLogsMessageAndFiresInnerBus()
+    {
+        $decorator = new LoggingDecorator(
+            $logger = $this->getMock(\Psr\Log\LoggerInterface::class)
+        );
+        $decorator->setInnerBus($bus = $this->getMock(\Chief\CommandBus::class));
+        $command = new TestCommand();
+        $bus->expects($this->once())->method('execute')->with($command);
+        $logger->expects($this->exactly(2))->method('debug')->with($this->anything(), ['Command' => serialize($command), 'Context' => null]);
+        $decorator->execute($command);
+    }
+
+    public function testExecuteLogsExecptionIfThrownByInnerBusAndBubbleException()
+    {
+        $decorator = new LoggingDecorator(
+            $logger = $this->getMock(\Psr\Log\LoggerInterface::class)
+        );
+        $decorator->setInnerBus($bus = $this->getMock(\Chief\CommandBus::class));
+        $command = new TestCommand();
+        $bus->expects($this->once())->method('execute')->with($command)->will($this->throwException(new \Exception('Oops')));
+        $logger->expects($this->exactly(2))->method('debug')->with($this->anything(), ['Command' => serialize($command), 'Context' => null]);
+
+        $this->setExpectedException('Exception');
+        $decorator->execute($command);
+    }
+
+    /**
+     * @return \Chief\Decorator
+     */
+    protected function getDecorator()
+    {
+        return new LoggingDecorator($this->getMock(\Psr\Log\LoggerInterface::class));
+    }
+
+}

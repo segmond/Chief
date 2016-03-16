@@ -1,8 +1,8 @@
-#Chief
+# Chief
 
 [![Build Status](https://scrutinizer-ci.com/g/adamnicholson/Chief/badges/build.png?b=master)](https://scrutinizer-ci.com/g/adamnicholson/Chief/build-status/master) [![Code Coverage](https://scrutinizer-ci.com/g/adamnicholson/Chief/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/adamnicholson/Chief/?branch=master) [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/adamnicholson/Chief/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/adamnicholson/Chief/?branch=master) [![SensioLabsInsight](https://insight.sensiolabs.com/projects/2459f377-6af7-43b8-98df-c67f42138080/mini.png)](https://insight.sensiolabs.com/projects/2459f377-6af7-43b8-98df-c67f42138080)
 
-Chief is a powerful standalone command bus package for PHP 5.4+.
+Chief is a powerful standalone command bus package for PHP 7.0+.
 
 ## Contents
 
@@ -54,7 +54,7 @@ class RegisterUserCommandHandler {
 	}
 }
 
-$chief = new Chief;
+$chief = Chief\ChiefFactory::create();
 
 $registerUserCommand = new RegisterUserCommand;
 $registerUserCommand->email = 'adamnicholson10@gmail.com';
@@ -96,7 +96,7 @@ class MyCommandHandler {
 When you pass a `Command` to `Chief::execute()`, Chief will automatically search for the relevant `CommandHandler` and call the `handle()` method:
 
 ```php
-$chief = new Chief;
+$chief = Chief\ChiefFactory::create();
 $chief->execute(new MyCommand);
 ```
 
@@ -111,11 +111,11 @@ Want to implement your own method of automatically resolving handlers from comma
 If your handlers don't follow a particular naming convention, you can explicitly bind a command to a handler by its class name:
 
 ```php
-use Chief\Chief, Chief\NativeCommandHandlerResolver, Chief\Busses\SynchronousCommandBus;
+use Chief\Chief, Chief\NativeCommandHandlerResolver, Chief\Bus\SynchronousCommandBus;
 
 $resolver = new NativeCommandHandlerResolver();
 $bus = new SynchronousCommandBus($resolver);
-$chief = new Chief($resolver);
+$chief = Chief\ChiefFactory::create()($resolver);
 
 $resolver->bindHandler('MyCommand', 'MyCommandHandler');
 
@@ -158,50 +158,40 @@ $chief->execute(new SelfHandlingCommand);
 ## Decorators
 Imagine you want to log every command execution. You could do this by adding a call to your logger in every `CommandHandler`, however a much more elegant solution is to use decorators.
 
-Registering a decorator:
+Registering decorators:
 
 ```php
-$chief = new Chief(new SynchronousCommandBus, [new LoggingDecorator($logger)]);
+$chief = Chief\ChiefFactory::createWithDecorators([
+    new LoggingDecorator($logger)
+]);
 ```
     
 Now, whenever `Chief::execute()` is called, the command will be passed to `LoggingDecorator::execute()`, which will perform some log action, and then pass the command to the relevant `CommandHandler`.
 
-Chief provides you with two decorators out-the-box:
+Chief provides you with a number of  decorators out-the-box:
 
 - *LoggingDecorator*: Log before and after all executions to a `Psr\Log\LoggerInterface`
-- *EventDispatchingDecorator*: Dispatch an event to a `Chief\Decorators\EventDispatcher` after every command execution.
-- *CommandQueueingDecorator*: Put the command into a Queue for later execution, if it implements `Chief\QueueableCommand`. (Read more under "Queued Commands")
-- *TransactionalCommandLockingDecorator*: Lock the command bus when a command implementing `Chief\TransactionalCommand` is being executed. (Read more under "Transactional Commands")
+- *EventDispatchingDecorator*: Dispatch an event to a `Chief\Event\EventDispatcher` after every command execution.
+- *CommandQueueingDecorator*: Put the command into a Queue for later execution, if it implements `Chief\Queue\QueueableCommand`. (Read more under "Queued Commands")
+- *TransactionalCommandLockingDecorator*: Lock the command bus when a command implementing `Chief\Transaction\TransactionalCommand` is being executed. (Read more under "Transactional Commands")
+- *CachingDecorator*: Cache the return value of your command handlers
     
-Registering multiple decorators:
+Registering multiple decorators is done one of 2 ways:
 
 ```php
 // Attach decorators when you instantiate
-$chief = new Chief(new SynchronousCommandBus, [
+$chief = Chief\ChiefFactory::createWithDecorators([
     new LoggingDecorator($logger),
     new EventDispatchingDecorator($eventDispatcher)
 ]);
 
 // Or attach decorators later
-$chief = new Chief();
+$chief = Chief\ChiefFactory::create();
 $chief->pushDecorator(new LoggingDecorator($logger));
 $chief->pushDecorator(new EventDispatchingDecorator($eventDispatcher));
-
-// Or manually stack decorators
-$chief = new Chief(
-    new EventDispatchingtDecorator($eventDispatcher,
-        new LoggingDecorator($logger, $context, 
-            new CommandQueueingDecorator($queuer, 
-                new TransactionalCommandLockingDecorator(
-                    new CommandQueueingDecorator($queuer, 
-                        new SynchronousCommandBus()
-                    )
-                )
-            )
-        )
-    )
-);
 ```
+
+> Note: The *last* decorator pushed onto the stack will be the *first* decorator to be executed
     
 ## Queued Commands
 
@@ -225,15 +215,13 @@ interface CommandQueuer {
 Next, attach the `CommandQueueingDecorator` decorator:
 
 ```php
-$chief = new Chief();
-$queuer = MyCommandBusQueuer();
 $chief->pushDecorator(new CommandQueueingDecorator($queuer));
 ```
     
-Then, implement `QueueableCommand` in any command which can be queued:
+Implement `QueueableCommand` in any command which can be queued:
 
 ```php
-MyQueueableCommand implements Chief\QueueableCommand {}
+MyQueueableCommand implements Chief\Queue\QueueableCommand {}
 ```
 
 Then use Chief as normal:
@@ -245,7 +233,7 @@ $chief->execute($command);
 
 If you pass Chief any command which implements `QueueableCommand` it will be added to the queue. Any commands which do *not* implement `QueueableCommand` will be executed immediately as normal.
 
-If your commands implement `QueueableCommand` but you are not using the `CommandQueueingDecorator`, then they will be executed immediately as normal. For this reason, it is good practice to implement `QueueableCommand` for any commands which may be queued in the future, even if you aren't using the queueing decorator yet.
+If your commands implement `QueueableCommand` but you are not using the `CommandQueueingDecorator`, then they will be executed immediately as normal. 
 
 ## Cached Command Execution
 
@@ -261,16 +249,14 @@ Example:
 
 ```php
 use Chief\CommandBus,
-    Chief\CacheableCommand,
-    Chief\Decorators\CachingDecorator;
+    Chief\Cache\CacheableCommand,
+    Chief\Cache\CachingDecorator;
 
-$chief = new Chief();
+$chief = Chief\ChiefFactory::create();
 $chief->pushDecorator(new CachingDecorator(
 	$cache, // Your library of preference implementing PSR-6 CacheItemPoolInterface.
 	3600 // Time in seconds that values should be cached for. 3600 = 1 hour.
 ));
-
-
     
 class FetchUserReportCommand implements CacheableCommand { }
 
@@ -296,7 +282,7 @@ Here's an example:
 ```php
 use Chief\CommandBus;
 use Chief\Command;
-use Chief\Decorators\TransactionalCommandLockingDecorator;
+use Chief\Transaction\TransactionalCommandLockingDecorator;
 
 class RegisterUserCommandHandler {
 	public function __construct(CommandBus $bus, Users $users) {
@@ -313,7 +299,7 @@ class RegisterUserCommandHandler {
 	}
 }
 
-$chief = new Chief();
+$chief = Chief\ChiefFactory::create();
 $chief->pushDecorator(new TransactionalCommandLockingDecorator());
 
 $command = new RegisterUserCommand;
@@ -336,7 +322,7 @@ For example, if you're using Laravel:
 ```php
 use Chief\Resolvers\NativeCommandHandlerResolver,
     Chief\Chief,
-    Chief\Busses\SynchronousCommandBus,
+    Chief\Bus\SynchronousCommandBus,
     Chief\Container;
 
 class IlluminateContainer implements Container {
@@ -346,7 +332,7 @@ class IlluminateContainer implements Container {
 }
 
 $resolver = new NativeCommandHandlerResolver(new IlluminateContainer);
-$chief = new Chief(new SynchronousCommandBus($resolver));
+$chief = Chief\ChiefFactory::create()(new SynchronousCommandBus($resolver));
 $chief->execute(new MyCommand);
 ```
 
@@ -357,7 +343,7 @@ Containers have already been provided for :
 ```php
 $container = new \Illuminate\Container\Container;
 $resolver = new NativeCommandHandlerResolver(new \Chief\Bridge\Laravel\IlluminateContainer($container));
-$chief = new Chief(new \Chief\Busses\SynchronousCommandBus($resolver));
+$chief = Chief\ChiefFactory::create()(new \Chief\Bus\SynchronousCommandBus($resolver));
 ```
 
 `League\Container`:
@@ -365,7 +351,7 @@ $chief = new Chief(new \Chief\Busses\SynchronousCommandBus($resolver));
 ```php
 $container = new \League\Container\Container;
 $resolver = new NativeCommandHandlerResolver(new \Chief\Bridge\Laravel\IlluminateContainer($container));
-$chief = new Chief(new \Chief\Busses\SynchronousCommandBus($resolver));
+$chief = Chief\ChiefFactory::create()(new \Chief\Bus\SynchronousCommandBus($resolver));
 ```
 
 ## Contributing
