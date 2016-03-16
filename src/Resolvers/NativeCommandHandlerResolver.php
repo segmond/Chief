@@ -5,11 +5,11 @@ namespace Chief\Resolvers;
 use Chief\Command;
 use Chief\CommandHandler;
 use Chief\CommandHandlerResolver;
-use Chief\Container;
 use Chief\Exceptions\UnresolvableCommandHandlerException;
 use Chief\Handlers\CallableCommandHandler;
 use Chief\Handlers\LazyLoadingCommandHandler;
 use Chief\Containers\NativeContainer;
+use Interop\Container\ContainerInterface;
 
 class NativeCommandHandlerResolver implements CommandHandlerResolver
 {
@@ -17,7 +17,7 @@ class NativeCommandHandlerResolver implements CommandHandlerResolver
 
     protected $handlers = [];
 
-    public function __construct(Container $container = null)
+    public function __construct(ContainerInterface $container = null)
     {
         $this->container = $container ?: new NativeContainer;
     }

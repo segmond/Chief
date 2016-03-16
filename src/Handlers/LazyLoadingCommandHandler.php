@@ -4,12 +4,12 @@ namespace Chief\Handlers;
 
 use Chief\Command;
 use Chief\CommandHandler;
-use Chief\Container;
+use Interop\Container\ContainerInterface;
 
 class LazyLoadingCommandHandler implements CommandHandler
 {
     /**
-     * @var \Chief\Container
+     * @var ContainerInterface
      */
     protected $container;
 
@@ -20,9 +20,9 @@ class LazyLoadingCommandHandler implements CommandHandler
 
     /**
      * @param string $handlerName
-     * @param Container $container
+     * @param ContainerInterface $container
      */
-    public function __construct($handlerName, Container $container)
+    public function __construct($handlerName, ContainerInterface $container)
     {
         $this->container = $container;
         $this->handlerName = $handlerName;
@@ -36,7 +36,7 @@ class LazyLoadingCommandHandler implements CommandHandler
      */
     public function handle(Command $command)
     {
-        $handler = $this->container->make($this->handlerName);
+        $handler = $this->container->get($this->handlerName);
 
         return $handler->handle($command);
     }
