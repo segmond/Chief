@@ -20,21 +20,15 @@ class CachingDecorator implements Decorator
      * @var CacheItemPoolInterface
      */
     private $cache;
-    /**
-     * @var int
-     */
-    private $expiresAfter;
 
     /**
      * CachingDecorator constructor.
      * @param CacheItemPoolInterface $cache
-     * @param int $expiresAfter
      * @param CommandBus $innerCommandBus
      */
-    public function __construct(CacheItemPoolInterface $cache, $expiresAfter = 3600, CommandBus $innerCommandBus = null)
+    public function __construct(CacheItemPoolInterface $cache, CommandBus $innerCommandBus = null)
     {
         $this->cache = $cache;
-        $this->expiresAfter = $expiresAfter;
         $this->setInnerBus($innerCommandBus ?: new SynchronousCommandBus);
     }
 
@@ -55,7 +49,7 @@ class CachingDecorator implements Decorator
             return $this->innerBus->execute($command);
         }
 
-        $cached = $this->cache->getItem($this->getCacheKey($command));
+        $cached = $this->cache->getItem($this->parseCachekey($command));
         if ($cached->isHit()) {
             return $cached->get();
         }
@@ -68,7 +62,7 @@ class CachingDecorator implements Decorator
     }
 
     /**
-     * Create a new cache item to be persisted.
+     * Create a new cache item instance to be persisted.
      *
      * @param CacheableCommand $command
      * @param mixed $value
@@ -76,22 +70,17 @@ class CachingDecorator implements Decorator
      */
     private function createCacheItem(CacheableCommand $command, $value)
     {
-        return $this->cache->getItem($this->getCacheKey($command))
-            ->expiresAfter($this->getCacheExpiry($command))
+        return $this->cache->getItem($this->parseCachekey($command))
+            ->expiresAfter($this->parseCacheExpiry($command))
             ->set($value);
     }
 
     /**
-     * Create the key to be used when saving this item to the cache pool.
-     *
-     * The cache item key is taken as a the (string) serialized command, to ensure the return value is unique
-     * depending on the command properties; that serialized string is then md5'd to ensure it doesn't
-     * overflow any string length limits the implementing CacheItemPoolInterface library has.
-     *
      * @param CacheableCommand $command
+     * @throws \InvalidArgumentException
      * @return string
      */
-    private function getCacheKey(CacheableCommand $command)
+    private function parseCachekey(CacheableCommand $command)
     {
         $key = $command->getCacheKey();
 
@@ -103,12 +92,11 @@ class CachingDecorator implements Decorator
     }
 
     /**
-     * Determine when this CachableCommand should expire, in terms of seconds from now.
-     *
      * @param CacheableCommand $command
+     * @throws \InvalidArgumentException
      * @return int
      */
-    private function getCacheExpiry(CacheableCommand $command)
+    private function parseCacheExpiry(CacheableCommand $command)
     {
         $seconds = $command->getCacheExpiry();
 
