@@ -2,7 +2,6 @@
 
 namespace Chief\Handlers;
 
-use Chief\Command;
 use Chief\Handler;
 use Interop\Container\ContainerInterface;
 
