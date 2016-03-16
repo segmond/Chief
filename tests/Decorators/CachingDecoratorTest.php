@@ -4,10 +4,10 @@ namespace Chief\Decorators;
 
 use Chief\Cache;
 use Chief\CacheableCommand;
+use Chief\CacheableCommandDefaults;
 use Chief\Command;
 use Chief\CommandBus;
 use Chief\Decorator;
-use Chief\HasCacheOptions;
 use Prophecy\Argument;
 use Prophecy\Prophecy\ObjectProphecy;
 use Psr\Cache\CacheItemInterface;
@@ -32,7 +32,8 @@ class CachingDecoratorTest extends DecoratorTest
         $inner = $this->prophesize(CommandBus::class);
         $decorator->setInnerBus($inner->reveal());
 
-        $command = $this->prophesize(Command::class)->reveal();
+        $commandProphecy = $this->prophesize(Command::class);
+        $command = $commandProphecy->reveal();
 
         $this->cache->save(Argument::any())->shouldNotBeCalled();
         $this->cache->getItem(Argument::any())->shouldNotBeCalled();
@@ -49,18 +50,22 @@ class CachingDecoratorTest extends DecoratorTest
         $inner = $this->prophesize(CommandBus::class);
         $decorator->setInnerBus($inner->reveal());
 
-        $command = $this->prophesize(CacheableCommand::class)->reveal();
+        $commandProphecy = $this->prophesize(CacheableCommand::class);
+        $command = $commandProphecy->reveal();
+        $commandProphecy->getCacheExpiry()->willReturn(3600);
+        $key = md5(serialize(($command)));
+        $commandProphecy->getCacheKey()->willReturn($key);
 
         $notCachedItem = $this->prophesize(CacheItemInterface::class);
         $notCachedItem->isHit()->willReturn(false);
-        $notCachedItem->getKey()->willReturn(md5(serialize(($command))));
+        $notCachedItem->getKey()->willReturn($key);
         $this->cache->getItem(Argument::any())->willReturn($notCachedItem->reveal());
 
         $notCachedItem->set(7)->shouldBeCalled()->willReturn($notCachedItem->reveal());
         $notCachedItem->expiresAfter(3600)->shouldBeCalled()->willReturn($notCachedItem->reveal());
 
-        $this->cache->save(Argument::that(function (CacheItemInterface $item) use ($command) {
-            return $item->getKey() === md5(serialize($command));
+        $this->cache->save(Argument::that(function (CacheItemInterface $item) use ($key) {
+            return $item->getKey() === $key;
         }))->shouldBeCalled();
 
         $inner->execute($command)->shouldBeCalled()->willReturn(7);
@@ -75,11 +80,10 @@ class CachingDecoratorTest extends DecoratorTest
         $inner = $this->prophesize(CommandBus::class);
         $decorator->setInnerBus($inner->reveal());
 
-        $commandProphecy = $this->prophesize(HasCacheOptions::class);
-        $commandProphecy->getCacheExpiry()->willReturn(60*60*24*365);
-        $commandProphecy->getCacheKey()->willReturn(null);
-
+        $commandProphecy = $this->prophesize(CacheableCommand::class);
         $command = $commandProphecy->reveal();
+        $commandProphecy->getCacheExpiry()->willReturn(60*60*24*365);
+        $commandProphecy->getCacheKey()->willReturn(md5(serialize(($command))));
 
         $notCachedItem = $this->prophesize(CacheItemInterface::class);
         $notCachedItem->isHit()->willReturn(false);
@@ -105,8 +109,8 @@ class CachingDecoratorTest extends DecoratorTest
         $inner = $this->prophesize(CommandBus::class);
         $decorator->setInnerBus($inner->reveal());
 
-        $commandProphecy = $this->prophesize(HasCacheOptions::class);
-        $commandProphecy->getCacheExpiry()->willReturn(null);
+        $commandProphecy = $this->prophesize(CacheableCommand::class);
+        $commandProphecy->getCacheExpiry()->willReturn(1);
         $commandProphecy->getCacheKey()->willReturn('custom-cache-key');
 
         $command = $commandProphecy->reveal();
@@ -117,7 +121,7 @@ class CachingDecoratorTest extends DecoratorTest
         $this->cache->getItem('custom-cache-key')->willReturn($notCachedItem->reveal());
 
         $notCachedItem->set(7)->shouldBeCalled()->willReturn($notCachedItem->reveal());
-        $notCachedItem->expiresAfter(3600)->shouldBeCalled()->willReturn($notCachedItem->reveal());
+        $notCachedItem->expiresAfter(1)->shouldBeCalled()->willReturn($notCachedItem->reveal());
 
         $this->cache->save(Argument::that(function (CacheItemInterface $item) use ($command) {
             return $item->getKey() === 'custom-cache-key';
@@ -135,12 +139,36 @@ class CachingDecoratorTest extends DecoratorTest
         $inner = $this->prophesize(CommandBus::class);
         $decorator->setInnerBus($inner->reveal());
 
-        $command = $this->prophesize(CacheableCommand::class)->reveal();
+        $commandProphecy = $this->prophesize(CacheableCommand::class);
+        $command = $commandProphecy->reveal();
+        $commandProphecy->getCacheExpiry()->willReturn(60*60*24*365);
+        $commandProphecy->getCacheKey()->willReturn(md5(serialize(($command))));
 
         $cachedItem = $this->prophesize(CacheItemInterface::class);
         $cachedItem->isHit()->willReturn(true);
         $cachedItem->get()->willReturn('foo');
         $this->cache->getItem(Argument::any())->willReturn($cachedItem->reveal());
+        $this->cache->save(Argument::any())->shouldNotBeCalled();
+
+        $inner->execute($command)->shouldNotBeCalled();
+        $result = $decorator->execute($command);
+        $this->assertEquals('foo', $result);
+    }
+
+    public function test_deafults_trait_covers_cachable_interface()
+    {
+        $decorator = $this->getDecorator();
+        $inner = $this->prophesize(CommandBus::class);
+        $decorator->setInnerBus($inner->reveal());
+
+        $command = new class implements CacheableCommand {
+            use CacheableCommandDefaults;
+        };
+
+        $cachedItem = $this->prophesize(CacheItemInterface::class);
+        $cachedItem->isHit()->willReturn(true);
+        $cachedItem->get()->willReturn('foo');
+        $this->cache->getItem($command->getCacheKey())->willReturn($cachedItem->reveal());
         $this->cache->save(Argument::any())->shouldNotBeCalled();
 
         $inner->execute($command)->shouldNotBeCalled();

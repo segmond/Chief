@@ -7,7 +7,6 @@ use Chief\CacheableCommand;
 use Chief\Command;
 use Chief\CommandBus;
 use Chief\Decorator;
-use Chief\HasCacheOptions;
 use Psr\Cache\CacheItemInterface;
 use Psr\Cache\CacheItemPoolInterface;
 
@@ -94,11 +93,13 @@ class CachingDecorator implements Decorator
      */
     private function getCacheKey(CacheableCommand $command)
     {
-        if ($command instanceof HasCacheOptions && $command->getCacheKey()) {
-            return $command->getCacheKey();
+        $key = $command->getCacheKey();
+
+        if (strlen($key) < 1) {
+            throw new \InvalidArgumentException('Cache key cannot be null');
         }
 
-        return md5(serialize($command));
+        return $key;
     }
 
     /**
@@ -109,10 +110,12 @@ class CachingDecorator implements Decorator
      */
     private function getCacheExpiry(CacheableCommand $command)
     {
-        if ($command instanceof HasCacheOptions && $command->getCacheExpiry() > 0) {
-            return $command->getCacheExpiry();
+        $seconds = $command->getCacheExpiry();
+
+        if ($seconds < 1) {
+            throw new \InvalidArgumentException('Cache expiry must be at least 1 second');
         }
 
-        return $this->expiresAfter;
+        return $seconds;
     }
 }
